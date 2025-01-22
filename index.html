@@ -8,52 +8,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.10/mode/javascript/javascript.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.10/codemirror.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.10/theme/dracula.min.css">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #1e1e1e;
-            color: #d4d4d4;
-        }
-        .container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        .title {
-            font-size: 28px;
-            margin-bottom: 20px;
-            color: #ffffff;
-        }
-        select, input, textarea, button {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 15px;
-            border: 1px solid #444;
-            border-radius: 5px;
-            background-color: #2d2d2d;
-            color: #d4d4d4;
-        }
-        button {
-            background-color: #007acc;
-            color: #ffffff;
-            border: none;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #005f99;
-        }
-        #editor-container {
-            width: 100%;
-            height: 300px;
-            margin: 20px 0;
-            border: 1px solid #444;
-        }
-    </style>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
@@ -65,6 +20,7 @@
             <option value="api">API Handling</option>
             <option value="validation">Form Validation</option>
         </select>
+
         <div id="input-section"></div>
         <button onclick="generateAdvancedCode()">Generate Code</button>
 
@@ -78,6 +34,85 @@
         let editor; // To hold the CodeMirror instance
         const inputSection = document.getElementById('input-section');
 
+        // Helper function to process and trim input details
+        const parseDetails = (details) => details.split(',').map(x => x.trim());
+
+        // Helper function to convert CSS property names to camelCase
+        const toCamelCase = (str) => str.replace(/-([a-z])/g, g => g[1].toUpperCase());
+
+        // Define API and validation templates first
+        const apiTemplate = {
+            method: {
+                label: 'Select API Method:',
+                options: ['GET', 'POST', 'PUT', 'DELETE']
+            },
+            additionalInputs: {
+                GET: { label: 'Enter API Endpoint:', placeholder: 'e.g., https://api.example.com/data' },
+                POST: { label: 'Enter API Endpoint and Payload:', placeholder: 'e.g., https://api.example.com/data' },
+                PUT: { label: 'Enter API Endpoint and Payload:', placeholder: 'e.g., https://api.example.com/data' },
+                DELETE: { label: 'Enter API Endpoint:', placeholder: 'e.g., https://api.example.com/data' }
+            },
+            generate: (method, endpoint, payload) => {
+                const commonFetch = (method, endpoint, payload = '') => `
+fetch('${endpoint}', {
+  method: '${method}',
+  ${payload ? `headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(${payload})` : ''}
+})
+  .then(response => response.json())
+  .then(data => console.log(data))
+  .catch(error => console.error('Error:', error));`;
+
+                if (method === 'GET' || method === 'DELETE') {
+                    return commonFetch(method, endpoint);
+                } else {
+                    return commonFetch(method, endpoint, payload);
+                }
+            }
+        };
+
+        const validationTemplate = {
+            action: {
+                label: 'Select Validation Type:',
+                options: ['Check Empty Fields', 'Email Validation', 'Custom Validation']
+            },
+            additionalInputs: {
+                'Check Empty Fields': { label: 'Enter Form ID:', placeholder: 'e.g., myForm' },
+                'Email Validation': { label: 'Enter Email Input ID:', placeholder: 'e.g., emailInput' },
+                'Custom Validation': { label: 'Enter Form ID and Validation Logic:', placeholder: 'e.g., myForm, Custom Logic' }
+            },
+            generate: (type, formId, logic) => {
+                const commonValidation = (validationLogic) => `
+const form = document.getElementById('${formId}');
+form.addEventListener('submit', (e) => {
+  e.preventDefault();
+  ${validationLogic}
+});`;
+
+                switch (type) {
+                    case 'Check Empty Fields':
+                        return commonValidation(`
+  const isEmpty = Array.from(form.elements).some(input => input.value.trim() === '');
+  if (isEmpty) alert('Please fill in all fields!');
+  else alert('Form submitted!');
+`);
+                    case 'Email Validation':
+                        return commonValidation(`
+const emailInput = document.getElementById('${formId}');
+emailInput.addEventListener('blur', () => {
+  const email = emailInput.value;
+  const isValid = /^[\\w.-]+@[\\w.-]+\\.\\w+$/.test(email);
+  if (!isValid) alert('Invalid email address!');
+});
+`);
+                    case 'Custom Validation':
+                        return commonValidation(logic);
+                    default:
+                        return '';
+                }
+            }
+        };
+
+        // Now define the complete templates object
         const templates = {
             dom: {
                 action: {
@@ -90,100 +125,45 @@
                     'Remove Element': { label: 'Enter DOM Selector:', placeholder: 'e.g., #myDiv' },
                     'Event Listener': { label: 'Enter DOM Selector and Event Type:', placeholder: 'e.g., #myButton, click' }
                 },
-                generate: (action, selector, details) => {
+                generate: (action, details) => {
+                    if (!details) return '';
+                    
                     switch (action) {
-                        case 'Change Style':
-                            const [cssSelector, property] = details.split(',').map(x => x.trim());
-                            return `document.querySelector('${cssSelector}').style.${property.split(':')[0].trim()} = '${property.split(':')[1].trim()}';`;
-                        case 'Add Content':
-                            const [contentSelector, content] = details.split(',').map(x => x.trim());
-                            return `document.querySelector('${contentSelector}').innerHTML = '${content}';`;
-                        case 'Remove Element':
-                            return `document.querySelector('${selector}').remove();`;
-                        case 'Event Listener':
-                            const [eventSelector, eventType] = details.split(',').map(x => x.trim());
-                            return `
-document.querySelector('${eventSelector}').addEventListener('${eventType}', () => {
-  alert('${eventType} event triggered!');
+                        case 'Change Style': {
+                            const [selector, style] = parseDetails(details);
+                            if (!selector || !style) return '';
+                            
+                            const [property, value] = style.split(':').map(x => x.trim());
+                            const camelProperty = toCamelCase(property);
+                            return `document.querySelector('${selector}').style.${camelProperty} = '${value}';`;
+                        }
+                        case 'Add Content': {
+                            const [selector, content] = parseDetails(details);
+                            if (!selector || !content) return '';
+                            return `document.querySelector('${selector}').innerHTML = '${content}';`;
+                        }
+                        case 'Remove Element': {
+                            if (!details) return '';
+                            return `document.querySelector('${details}').remove();`;
+                        }
+                        case 'Event Listener': {
+                            const [selector, eventType] = parseDetails(details);
+                            if (!selector || !eventType) return '';
+                            return `document.querySelector('${selector}').addEventListener('${eventType}', () => {
+    console.log('${eventType} event triggered on ${selector}');
+    // Add your event handling code here
 });`;
+                        }
                         default:
                             return '';
                     }
                 }
             },
-            api: {
-                method: {
-                    label: 'Select API Method:',
-                    options: ['GET', 'POST', 'PUT', 'DELETE']
-                },
-                additionalInputs: {
-                    GET: { label: 'Enter API Endpoint:', placeholder: 'e.g., https://api.example.com/data' },
-                    POST: { label: 'Enter API Endpoint and Payload:', placeholder: 'e.g., https://api.example.com/data' },
-                    PUT: { label: 'Enter API Endpoint and Payload:', placeholder: 'e.g., https://api.example.com/data' },
-                    DELETE: { label: 'Enter API Endpoint:', placeholder: 'e.g., https://api.example.com/data' }
-                },
-                generate: (method, endpoint, payload) => {
-                    if (method === 'GET' || method === 'DELETE') {
-                        return `
-fetch('${endpoint}', { method: '${method}' })
-  .then(response => response.json())
-  .then(data => console.log(data))
-  .catch(error => console.error('Error:', error));`;
-                    } else {
-                        return `
-fetch('${endpoint}', {
-  method: '${method}',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(${payload})
-}).then(response => response.json())
-  .then(data => console.log(data))
-  .catch(error => console.error('Error:', error));`;
-                    }
-                }
-            },
-            validation: {
-                action: {
-                    label: 'Select Validation Type:',
-                    options: ['Check Empty Fields', 'Email Validation', 'Custom Validation']
-                },
-                additionalInputs: {
-                    'Check Empty Fields': { label: 'Enter Form ID:', placeholder: 'e.g., myForm' },
-                    'Email Validation': { label: 'Enter Email Input ID:', placeholder: 'e.g., emailInput' },
-                    'Custom Validation': { label: 'Enter Form ID and Validation Logic:', placeholder: 'e.g., myForm, Custom Logic' }
-                },
-                generate: (type, formId, logic) => {
-                    switch (type) {
-                        case 'Check Empty Fields':
-                            return `
-const form = document.getElementById('${formId}');
-form.addEventListener('submit', (e) => {
-  e.preventDefault();
-  const isEmpty = Array.from(form.elements).some(input => input.value.trim() === '');
-  if (isEmpty) alert('Please fill in all fields!');
-  else alert('Form submitted!');
-});`;
-                        case 'Email Validation':
-                            return `
-const emailInput = document.getElementById('${formId}');
-emailInput.addEventListener('blur', () => {
-  const email = emailInput.value;
-  const isValid = /^[\\w.-]+@[\\w.-]+\\.\\w+$/.test(email);
-  if (!isValid) alert('Invalid email address!');
-});`;
-                        case 'Custom Validation':
-                            return `
-const form = document.getElementById('${formId}');
-form.addEventListener('submit', (e) => {
-  e.preventDefault();
-  ${logic}
-});`;
-                        default:
-                            return '';
-                    }
-                }
-            }
+            api: apiTemplate,
+            validation: validationTemplate
         };
 
+        // Rest of the functions remain the same
         function initializeEditor() {
             editor = CodeMirror(document.getElementById('editor-container'), {
                 lineNumbers: true,
@@ -240,22 +220,30 @@ form.addEventListener('submit', (e) => {
 
         function generateAdvancedCode() {
             const category = document.getElementById('category').value;
-
-            if (!category) {
-                alert('Please select a category.');
-                return;
-            }
-
             const action = document.getElementById('action-select')?.value;
-            const selectorOrFormId = document.getElementById('dynamic-input')?.value.trim();
-            const additionalDetails = document.getElementById('payload-input')?.value.trim() || '';
+            const userInput = document.getElementById('dynamic-input')?.value.trim();
+            const payload = document.getElementById('payload-input')?.value.trim();
 
-            if (!action || !selectorOrFormId) {
-                alert('Please select an action and provide the required input.');
+            if (!category || !action || !userInput) {
+                alert('Please fill in all required fields.');
                 return;
             }
 
-            const codeSnippet = templates[category].generate(action, selectorOrFormId, additionalDetails);
+            let codeSnippet = '';
+
+            if (category === 'dom') {
+                codeSnippet = templates.dom.generate(action, userInput);
+            } else if (category === 'api') {
+                codeSnippet = templates.api.generate(action, userInput, payload || '{}');
+            } else if (category === 'validation') {
+                codeSnippet = templates.validation.generate(action, ...userInput.split(','));
+            }
+
+            if (!codeSnippet) {
+                alert('Invalid input format. Please check the placeholder example.');
+                return;
+            }
+
             editor.setValue(codeSnippet);
         }
 
