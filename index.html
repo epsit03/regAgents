@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>jsnippetgen</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.10/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.10/mode/javascript/javascript.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.10/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.10/theme/dracula.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .title {
+            font-size: 28px;
+            margin-bottom: 20px;
+            color: #ffffff;
+        }
+        select, input, textarea, button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #444;
+            border-radius: 5px;
+            background-color: #2d2d2d;
+            color: #d4d4d4;
+        }
+        button {
+            background-color: #007acc;
+            color: #ffffff;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #005f99;
+        }
+        #editor-container {
+            width: 100%;
+            height: 300px;
+            margin: 20px 0;
+            border: 1px solid #444;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="title">&lt;jsnippetgen&gt;</div>
+        <label for="category">Select Code Category:</label>
+        <select id="category" onchange="populateInputs()">
+            <option value="">-- Select Category --</option>
+            <option value="dom">DOM Manipulation</option>
+            <option value="api">API Handling</option>
+            <option value="validation">Form Validation</option>
+        </select>
+        <div id="input-section"></div>
+        <button onclick="generateAdvancedCode()">Generate Code</button>
+
+        <!-- VS Code-like Editor -->
+        <div id="editor-container"></div>
+
+        <button onclick="copyToClipboard()">Copy Code</button>
+    </div>
+
+    <script>
+        let editor; // To hold the CodeMirror instance
+        const inputSection = document.getElementById('input-section');
+
+        const templates = {
+            dom: {
+                action: {
+                    label: 'Select DOM Action:',
+                    options: ['Change Style', 'Add Content', 'Remove Element', 'Event Listener']
+                },
+                additionalInputs: {
+                    'Change Style': { label: 'Enter DOM Selector and CSS Property:', placeholder: 'e.g., #myDiv, color: red' },
+                    'Add Content': { label: 'Enter DOM Selector and Content:', placeholder: 'e.g., #myDiv, Hello World!' },
+                    'Remove Element': { label: 'Enter DOM Selector:', placeholder: 'e.g., #myDiv' },
+                    'Event Listener': { label: 'Enter DOM Selector and Event Type:', placeholder: 'e.g., #myButton, click' }
+                },
+                generate: (action, selector, details) => {
+                    switch (action) {
+                        case 'Change Style':
+                            const [cssSelector, property] = details.split(',').map(x => x.trim());
+                            return `document.querySelector('${cssSelector}').style.${property.split(':')[0].trim()} = '${property.split(':')[1].trim()}';`;
+                        case 'Add Content':
+                            const [contentSelector, content] = details.split(',').map(x => x.trim());
+                            return `document.querySelector('${contentSelector}').innerHTML = '${content}';`;
+                        case 'Remove Element':
+                            return `document.querySelector('${selector}').remove();`;
+                        case 'Event Listener':
+                            const [eventSelector, eventType] = details.split(',').map(x => x.trim());
+                            return `
+document.querySelector('${eventSelector}').addEventListener('${eventType}', () => {
+  alert('${eventType} event triggered!');
+});`;
+                        default:
+                            return '';
+                    }
+                }
+            },
+            api: {
+                method: {
+                    label: 'Select API Method:',
+                    options: ['GET', 'POST', 'PUT', 'DELETE']
+                },
+                additionalInputs: {
+                    GET: { label: 'Enter API Endpoint:', placeholder: 'e.g., https://api.example.com/data' },
+                    POST: { label: 'Enter API Endpoint and Payload:', placeholder: 'e.g., https://api.example.com/data' },
+                    PUT: { label: 'Enter API Endpoint and Payload:', placeholder: 'e.g., https://api.example.com/data' },
+                    DELETE: { label: 'Enter API Endpoint:', placeholder: 'e.g., https://api.example.com/data' }
+                },
+                generate: (method, endpoint, payload) => {
+                    if (method === 'GET' || method === 'DELETE') {
+                        return `
+fetch('${endpoint}', { method: '${method}' })
+  .then(response => response.json())
+  .then(data => console.log(data))
+  .catch(error => console.error('Error:', error));`;
+                    } else {
+                        return `
+fetch('${endpoint}', {
+  method: '${method}',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(${payload})
+}).then(response => response.json())
+  .then(data => console.log(data))
+  .catch(error => console.error('Error:', error));`;
+                    }
+                }
+            },
+            validation: {
+                action: {
+                    label: 'Select Validation Type:',
+                    options: ['Check Empty Fields', 'Email Validation', 'Custom Validation']
+                },
+                additionalInputs: {
+                    'Check Empty Fields': { label: 'Enter Form ID:', placeholder: 'e.g., myForm' },
+                    'Email Validation': { label: 'Enter Email Input ID:', placeholder: 'e.g., emailInput' },
+                    'Custom Validation': { label: 'Enter Form ID and Validation Logic:', placeholder: 'e.g., myForm, Custom Logic' }
+                },
+                generate: (type, formId, logic) => {
+                    switch (type) {
+                        case 'Check Empty Fields':
+                            return `
+const form = document.getElementById('${formId}');
+form.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const isEmpty = Array.from(form.elements).some(input => input.value.trim() === '');
+  if (isEmpty) alert('Please fill in all fields!');
+  else alert('Form submitted!');
+});`;
+                        case 'Email Validation':
+                            return `
+const emailInput = document.getElementById('${formId}');
+emailInput.addEventListener('blur', () => {
+  const email = emailInput.value;
+  const isValid = /^[\\w.-]+@[\\w.-]+\\.\\w+$/.test(email);
+  if (!isValid) alert('Invalid email address!');
+});`;
+                        case 'Custom Validation':
+                            return `
+const form = document.getElementById('${formId}');
+form.addEventListener('submit', (e) => {
+  e.preventDefault();
+  ${logic}
+});`;
+                        default:
+                            return '';
+                    }
+                }
+            }
+        };
+
+        function initializeEditor() {
+            editor = CodeMirror(document.getElementById('editor-container'), {
+                lineNumbers: true,
+                mode: "javascript",
+                theme: "dracula",
+                value: "// Generated JavaScript code will appear here"
+            });
+        }
+
+        function populateInputs() {
+            const category = document.getElementById('category').value;
+            inputSection.innerHTML = '';
+
+            if (category === 'dom') {
+                createDynamicInputs('dom');
+            } else if (category === 'api') {
+                createDynamicInputs('api');
+            } else if (category === 'validation') {
+                createDynamicInputs('validation');
+            }
+        }
+
+        function createDynamicInputs(category) {
+            const actionTemplate = templates[category].action || templates[category].method;
+            inputSection.innerHTML = `
+                <label for="action-select">${actionTemplate.label}</label>
+                <select id="action-select" onchange="populateAdditionalInputs('${category}')">
+                    <option value="">-- Select Action --</option>
+                    ${actionTemplate.options.map(option => `<option value="${option}">${option}</option>`).join('')}
+                </select>
+                <div id="additional-inputs"></div>
+            `;
+        }
+
+        function populateAdditionalInputs(category) {
+            const action = document.getElementById('action-select').value;
+            const additionalInputs = templates[category].additionalInputs[action];
+            const additionalInputSection = document.getElementById('additional-inputs');
+            additionalInputSection.innerHTML = '';
+
+            if (additionalInputs) {
+                additionalInputSection.innerHTML = `
+                    <label for="dynamic-input">${additionalInputs.label}</label>
+                    <input type="text" id="dynamic-input" placeholder="${additionalInputs.placeholder}" />
+                `;
+                if (category === 'api' && (action === 'POST' || action === 'PUT')) {
+                    additionalInputSection.innerHTML += `
+                        <label for="payload-input">Enter JSON Payload:</label>
+                        <textarea id="payload-input" placeholder='{"key": "value"}'></textarea>
+                    `;
+                }
+            }
+        }
+
+        function generateAdvancedCode() {
+            const category = document.getElementById('category').value;
+
+            if (!category) {
+                alert('Please select a category.');
+                return;
+            }
+
+            const action = document.getElementById('action-select')?.value;
+            const selectorOrFormId = document.getElementById('dynamic-input')?.value.trim();
+            const additionalDetails = document.getElementById('payload-input')?.value.trim() || '';
+
+            if (!action || !selectorOrFormId) {
+                alert('Please select an action and provide the required input.');
+                return;
+            }
+
+            const codeSnippet = templates[category].generate(action, selectorOrFormId, additionalDetails);
+            editor.setValue(codeSnippet);
+        }
+
+        function copyToClipboard() {
+            if (!editor) return;
+            const code = editor.getValue();
+            if (code.trim() === '') {
+                alert('There is no code to copy!');
+                return;
+            }
+            navigator.clipboard.writeText(code)
+                .then(() => alert('Code copied to clipboard!'))
+                .catch(() => alert('Failed to copy code.'));
+        }
+
+        // Initialize the CodeMirror editor on page load
+        initializeEditor();
+    </script>
+</body>
+</html>
