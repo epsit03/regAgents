@@ -158,6 +158,7 @@
         const email = document.getElementById('email').value;
 
         if (email.endsWith('@gevme.com')) {
+          localStorage.setItem('isLoggedIn', 'true');
           window.location.href = 'jsnippetgen.html';
           alert('Login Successful!');
         } else {
