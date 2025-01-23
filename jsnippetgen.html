@@ -6,12 +6,19 @@
     <title>jsnippetgen</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.10/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.10/mode/javascript/javascript.min.js"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.10/codemirror.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.10/theme/dracula.min.css">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
+        <p>   <button type="button" class="btn btn-default btn-sm" onclick="logout()">
+              <span class="glyphicon glyphicon-log-out"></span> Log out
+            </button>
+          </p>
         <div class="title">&lt;jsnippetgen&gt;</div>
         <label for="category">Select Code Category:</label>
         <select id="category" onchange="populateInputs()">
@@ -32,6 +39,48 @@
     </div>
 
     <script>
+        document.addEventListener('DOMContentLoaded', function () {
+        // Check if the user is logged in (replace with your own logic)
+        const isAuthenticated = localStorage.getItem('isLoggedIn') === 'true';
+
+        if (!isAuthenticated) {
+            // Display warning message
+            const warningDiv = document.createElement('div');
+            warningDiv.textContent = 'Unauthorized access attempt! Redirecting to login page in 5 seconds...';
+            warningDiv.style.position = 'fixed';
+            warningDiv.style.top = '10px';
+            warningDiv.style.left = '50%';
+            warningDiv.style.transform = 'translateX(-50%)';
+            warningDiv.style.backgroundColor = '#f44336'; // Red background
+            warningDiv.style.color = '#fff'; // White text
+            warningDiv.style.padding = '10px 20px';
+            warningDiv.style.borderRadius = '5px';
+            warningDiv.style.boxShadow = '0 2px 6px rgba(0, 0, 0, 0.2)';
+            warningDiv.style.zIndex = '1000';
+            document.write("Bad Attempt X");
+            document.body.appendChild(warningDiv);
+
+            // Redirect after 5 seconds
+            setTimeout(() => {
+                window.location.href = 'index.html';
+            }, 5000);
+        }
+    });
+
+        function logout() {
+    // sessionStorage.clear();
+    localStorage.clear();
+
+    // Optionally, clear cookies (if applicable)
+    document.cookie.split(";").forEach(function (cookie) {
+      document.cookie = cookie
+        .replace(/^ +/, "")
+        .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+    });
+
+    // Redirect to index.html
+    window.location.href = "index.html";
+  }
         let editor; // To hold the CodeMirror instance
         const inputSection = document.getElementById('input-section');
 
