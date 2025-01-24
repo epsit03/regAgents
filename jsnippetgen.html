@@ -24,6 +24,7 @@
         <select id="category" onchange="populateInputs()">
             <option value="">-- Select Category --</option>
             <option value="dom">DOM Manipulation</option>
+            <option value="complex-css">Complex CSS Styling (JS)</option>
             <option value="api">API Handling</option>
             <option value="validation">Form Validation</option>
             <option value="attendee">Attendee (reg) Forms</option>
@@ -120,6 +121,101 @@ fetch('${endpoint}', {
         };
 
         const templates = {
+            "complex-css": {
+    action: {
+        label: 'Choose Custom CSS Styling',
+        options: [
+            "Enter CSS Selectors (comma-separated)",
+            "Enter Base Styles (JSON format)",
+            "Enter Event-Based Styles (JSON format)",
+            "Add Transitions (optional)"
+        ],
+    },
+    additionalInputs: {
+        "Enter CSS Selectors (comma-separated)": {
+            label: "Enter CSS Selectors",
+            placeholder: "#id, .class, div"
+        },
+        "Enter Base Styles (JSON format)": {
+            label: "Enter Base Styles",
+            placeholder: '{"color": "blue", "background-color": "lightgray"}'
+        },
+        "Enter Event-Based Styles (JSON format)": {
+            label: "Enter Event-Based Styles",
+            placeholder: '{"click": {"transform": "scale(1.2)", "color": "red"}}'
+        },
+        "Add Transitions (optional)": {
+            label: "Add Transitions",
+            placeholder: "all 0.5s ease"
+        }
+    },
+    generate: ({ selectors, baseStyles, eventStyles, transitions, option }) => {
+        const selectorsArray = selectors.split(",").map(sel => sel.trim());
+        let code = "";
+
+        switch (option) {
+            case "Enter CSS Selectors (comma-separated)":
+                // Example logic for handling selectors
+                code += `// Handle selectors only\n`;
+                selectorsArray.forEach(selector => {
+                    code += `
+console.log("Selector: ${selector}");\n`;
+                });
+                break;
+
+            case "Enter Base Styles (JSON format)":
+                // Apply base styles dynamically
+                code += `// Apply base styles dynamically\n`;
+                selectorsArray.forEach(selector => {
+                    code += `
+document.querySelectorAll('${selector}').forEach(element => {
+    Object.assign(element.style, ${baseStyles});
+});\n`;
+                });
+                break;
+
+            case "Enter Event-Based Styles (JSON format)":
+                // Add event-based styles
+                if (eventStyles) {
+                    const events = JSON.parse(eventStyles);
+                    for (const [event, styles] of Object.entries(events)) {
+                        selectorsArray.forEach(selector => {
+                            code += `
+// Add ${event} event listener for '${selector}'
+document.querySelectorAll('${selector}').forEach(element => {
+    element.addEventListener('${event}', function() {
+        Object.assign(this.style, ${JSON.stringify(styles)});
+    });
+});\n`;
+                        });
+                    }
+                } else {
+                    code += "// No event styles provided\n";
+                }
+                break;
+
+            case "Add Transitions (optional)":
+                // Add transitions
+                if (transitions) {
+                    code += `// Add transitions\n`;
+                    selectorsArray.forEach(selector => {
+                        code += `
+document.querySelectorAll('${selector}').forEach(element => {
+    element.style.transition = '${transitions}';
+});\n`;
+                    });
+                } else {
+                    code += "// No transitions provided\n";
+                }
+                break;
+
+            default:
+                code += "// Invalid option selected\n";
+        }
+
+        return code;
+    }
+},
             multiStepForm: {
     action: {
         label: 'Generate Multi-Step Form Logic:',
@@ -512,7 +608,6 @@ window.onload = function () {
 
         function populateInputs() {
             const category = document.getElementById('category').value;
-            inputSection.innerHTML = '';
 
             if (templates[category]) {
                 createDynamicInputs(category);
@@ -549,39 +644,70 @@ window.onload = function () {
                         <textarea id="payload-input" placeholder='{"key": "value"}'></textarea>
                     `;
                 }
+                if (category === 'complex-css' && action === 'Enter Base Styles (JSON format)') {
+            additionalInputSection.innerHTML += `
+                <label for="base-styles-input">Base Styles (JSON):</label>
+                <textarea id="base-styles-input" placeholder='${additionalInputs.placeholder}'></textarea>
+            `;
+        }
             }
         }
 
         function generateAdvancedCode() {
-            const category = document.getElementById('category').value;
-            const action = document.getElementById('action-select')?.value;
-            const userInput = document.getElementById('dynamic-input')?.value.trim();
-            const payload = document.getElementById('payload-input')?.value.trim();
+    const category = document.getElementById('category').value;
+    const action = document.getElementById('action-select')?.value;
+    const userInput = document.getElementById('dynamic-input')?.value?.trim();
+    const payload = document.getElementById('payload-input')?.value?.trim();
 
-            if (!category || !action || !userInput) {
-                alert('Please fill in all required fields.');
-                return;
-            }
+    if (!category || !action) {
+        alert('Please fill in all required fields.');
+        return;
+    }
 
-            let codeSnippet = '';
+    let codeSnippet = '';
 
-            if (category === 'dom') {
-                codeSnippet = templates.dom.generate(action, userInput);
-            } else if (category === 'api') {
-                codeSnippet = templates.api.generate(action, userInput, payload || '{}');
-            } else if (category === 'validation') {
-                codeSnippet = templates.validation.generate(action, ...userInput.split(','));
-            } else if (category === 'attendee') {
-                codeSnippet = templates.attendee.generate(action,userInput);
-            }
+    if (category === 'dom') {
+        codeSnippet = templates.dom.generate(action, userInput);
+    } else if (category === 'api') {
+        codeSnippet = templates.api.generate(action, userInput, payload || '{}');
+    } else if (category === 'validation') {
+        codeSnippet = templates.validation.generate(action, ...userInput.split(','));
+    } else if (category === 'attendee') {
+        codeSnippet = templates.attendee.generate(action, userInput);
+    } else if (category === 'complex-css') {
+        const inputs = {
+            selectors: document.getElementById('dynamic-input')?.value.trim(),
+            baseStyles: document.getElementById('base-styles-input')?.value.trim(),
+            eventStyles: document.getElementById('event-styles-input')?.value.trim(),
+            transitions: document.getElementById('transitions-input')?.value.trim(),
+            option: action
+        };
 
-            if (!codeSnippet) {
-                alert('Invalid input format. Please check the placeholder example.');
-                return;
-            }
-
-            editor.setValue(codeSnippet);
+        // Validation based on the specific action
+        if (action === "Enter CSS Selectors (comma-separated)" && !inputs['selectors']) {
+            alert("Please provide CSS selectors.");
+            return;
+        } else if (action === "Enter Base Styles (JSON format)" && !inputs['baseStyles']) {
+            alert("Please provide base styles in JSON format.");
+            return;
+        } else if (action === "Enter Event-Based Styles (JSON format)" && !inputs['eventStyles']) {
+            alert("Please provide event styles in JSON format.");
+            return;
+        } else if (action === "Add Transitions (optional)" && !inputs['transitions']) {
+            alert("Please provide transition styles.");
+            return;
         }
+
+        codeSnippet = templates[category].generate(inputs);
+    }
+
+    if (!codeSnippet) {
+        alert('Invalid input format. Please check the placeholder example.');
+        return;
+    }
+
+    editor.setValue(codeSnippet);
+}
 
         function copyToClipboard() {
             if (!editor) return;
