@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>jsnippetgen</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.10/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.10/mode/javascript/javascript.min.js"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.10/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.10/theme/dracula.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <a href="regAgents.html" 
+   style="color: aliceblue; font-style: italic; padding: 3px; text-decoration: none; font-size: 18px; 
+          cursor: pointer; transition: color 0.3s ease, text-decoration 0.3s ease;" 
+   onmouseover="this.style.color='#7acaff'; this.style.textDecoration='underline';" 
+   onmouseout="this.style.color='aliceblue'; this.style.textDecoration='none';">
+   See other apps? Click here...
+</a>
+        <p>   
+            <button type="button" class="btn btn-default btn-sm" onclick="logout()">
+              <span class="glyphicon glyphicon-log-out"></span> Log out
+            </button>
+          </p>
+        <div class="title">&lt;jsnippetgen&gt;</div>
+        <label for="category">Select Code Category:</label>
+        <select id="category" onchange="populateInputs()">
+            <option value="">-- Select Category --</option>
+            <option value="dom">DOM Manipulation</option>
+            <option value="complex-css">Complex CSS Styling (JS)</option>
+            <option value="api">API Handling</option>
+            <option value="validation">Form Validation</option>
+            <option value="attendee">Attendee (reg) Forms</option>
+        </select>
+
+        <div id="input-section"></div>
+        <button onclick="generateAdvancedCode()">Generate Code</button>
+
+        <!-- VS Code-like Editor -->
+        <div id="editor-container"></div>
+
+        <button onclick="copyToClipboard()">Copy Code</button>
+    </div>
+
+    <script src="jscript.js"></script>
+</body>
+</html>
