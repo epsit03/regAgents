@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SVG Transformer</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/codemirror.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/mode/xml/xml.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #121212;
+            color: white;
+            padding: 20px;
+        }
+        .container {
+            width: 95%;
+            max-width: 1400px;
+            margin: auto;
+        }
+        .editor-container {
+            width: 100%;
+            height: 400px;
+        }
+        button {
+            display: block;
+            margin: 20px auto;
+            background-color: #bb86fc;
+            color: white;
+            border: none;
+            padding: 12px 18px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #3700b3;
+        }
+        .output-container {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            background: #1e1e1e;
+            border-radius: 8px;
+        }
+        #svgPreview {
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .copy-btn {
+            display: none;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SVG Transformer</h1>
+        <div class="editor-container">
+            <textarea id="inputCode"></textarea>
+        </div>
+        <button onclick="processSVG()">Process Transforms</button>
+        <div class="output-container" id="outputContainer">
+            <h2>Transformed SVG Code</h2>
+            <textarea id="outputCode"></textarea>
+            <button class="copy-btn" id="copyButton" onclick="copyToClipboard()">Copy Code</button>
+        </div>
+    </div>
+    <script>
+        var inputEditor = CodeMirror.fromTextArea(document.getElementById("inputCode"), {
+            mode: "xml",
+            lineNumbers: true,
+            theme: "dracula",
+            lineWrapping: true
+        });
+
+        var outputEditor = CodeMirror.fromTextArea(document.getElementById("outputCode"), {
+            mode: "xml",
+            lineNumbers: true,
+            theme: "dracula",
+            readOnly: true,
+            lineWrapping: true
+        });
+
+        function processSVG() {
+            let svgCode = inputEditor.getValue();
+            let parser = new DOMParser();
+            let xmlDoc = parser.parseFromString(svgCode, "image/svg+xml");
+            
+            xmlDoc.querySelectorAll('g[transform]').forEach(group => {
+                let transform = group.getAttribute('transform');
+                let match = transform.match(/translate\(\s*([-+]?\d*\.?\d+)\s*,\s*([-+]?\d*\.?\d+)\s*\)/);
+                if (match) {
+                    let tx = parseFloat(match[1]);
+                    let ty = parseFloat(match[2]);
+                    
+                    group.querySelectorAll('rect').forEach(rect => {
+                        let x = parseFloat(rect.getAttribute('x') || 0);
+                        let y = parseFloat(rect.getAttribute('y') || 0);
+                        rect.setAttribute('x', x + tx);
+                        rect.setAttribute('y', y + ty);
+                    });
+                    
+                    group.querySelectorAll('circle').forEach(circle => {
+                        let cx = parseFloat(circle.getAttribute('cx') || 0);
+                        let cy = parseFloat(circle.getAttribute('cy') || 0);
+                        circle.setAttribute('cx', cx + tx);
+                        circle.setAttribute('cy', cy + ty);
+                    });
+                    
+                    group.removeAttribute('transform');
+                }
+            });
+            
+            let serializer = new XMLSerializer();
+            let transformedSVG = serializer.serializeToString(xmlDoc.documentElement);
+            outputEditor.setValue(transformedSVG);
+            document.getElementById("outputContainer").style.display = "block";
+            document.getElementById("copyButton").style.display = "block";
+        }
+
+        function copyToClipboard() {
+            let outputText = outputEditor.getValue();
+            navigator.clipboard.writeText(outputText).then(() => {
+                alert("SVG code copied to clipboard!");
+            }).catch(err => {
+                console.error("Failed to copy: ", err);
+            });
+        }
+    </script>
+</body>
+</html>
